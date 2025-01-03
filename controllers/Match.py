@@ -1,7 +1,6 @@
-from controllers.Board import Board, OutOfBoundsError, CellOccupiedError
+from controllers.Board import Board
 
 class Match:
     def __init__(self):
-        self.board = Board()
-        self.winner = None
-        self.game_over = False
+        self.board = Board(3)
+        self.winner = None  # Inicializa o vencedor como None

@@ -5,13 +5,14 @@ class CellOccupiedError(Exception):
     pass
 
 class Board:
-    def __init__(self):
-        self.mat = [[' ' for _ in range(3)] for _ in range(3)]
+    def __init__(self, size):
+        self.size = size
+        self.mat = [[' ' for _ in range(size)] for _ in range(size)]
         self.current_player = 'O'
         self.turn = 1
 
-    def make_move(self, i, j):  # Nome consistente: make_move
-        if not (0 <= i < 3 and 0 <= j < 3):
+    def make_move(self, i, j):
+        if not (0 <= i < self.size and 0 <= j < self.size):
             raise OutOfBoundsError("Movimento fora dos limites do tabuleiro!")
 
         if self.mat[i][j] != ' ':
@@ -26,18 +27,17 @@ class Board:
         return all(cell != " " for row in self.mat for cell in row)
 
     def check_victory(self):
-        for i in range(3):
-            if self.mat[i][0] == self.mat[i][1] == self.mat[i][2] != " ":
+        size = self.size
+        for i in range(size):
+            if all(self.mat[i][j] == self.mat[i][0] and self.mat[i][j] != " " for j in range(size)):
                 return self.mat[i][0]
-            if self.mat[0][i] == self.mat[1][i] == self.mat[2][i] != " ":
-                return self.mat[0][i]
-
-        if self.mat[0][0] == self.mat[1][1] == self.mat[2][2] != " ":
+        for j in range(size):
+            if all(self.mat[i][j] == self.mat[0][j] and self.mat[i][j] != " " for i in range(size)):
+                return self.mat[0][j]
+        if all(self.mat[i][i] == self.mat[0][0] and self.mat[i][i] != " " for i in range(size)):
             return self.mat[0][0]
-        if self.mat[0][2] == self.mat[1][1] == self.mat[2][0] != " ":
-            return self.mat[0][2]
-
+        if all(self.mat[i][size - 1 - i] == self.mat[0][size - 1] and self.mat[i][size - 1 - i] != " " for i in range(size)):
+            return self.mat[0][size - 1]
         if self.is_full():
             return "Empate"
-
         return None

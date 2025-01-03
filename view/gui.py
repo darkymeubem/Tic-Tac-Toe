@@ -1,84 +1,111 @@
 import tkinter as tk
-from tkinter import messagebox
-import os
-import traceback  # Importe traceback para rastreamento de pilha
+import random
 from controllers.Match import Match
 from controllers.Board import OutOfBoundsError, CellOccupiedError
 
 class TicTacToeGUI:
     def __init__(self, master):
         self.master = master
-        master.title("Jogo da Velha")
+        master.title("Matrix Tic-Tac-Toe")
+        master.configure(bg="black")
 
         self.match = Match()
-
-        self.cell_size = 100
-        self.line_width = 5
-        self.grid_color = "black"
-
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            x_path = os.path.join(current_dir, "images", "X.png")
-            o_path = os.path.join(current_dir, "images", "O.png")
-            self.x_image = tk.PhotoImage(file=x_path).subsample(2,2)
-            self.o_image = tk.PhotoImage(file=o_path).subsample(2,2)
-        except tk.TclError as e:
-            messagebox.showerror("Erro", f"Não foi possível carregar as imagens: {e}")
-            exit()
-        except FileNotFoundError:
-            messagebox.showerror("Erro", "Pasta 'images' não encontrada")
-            exit()
-
-        canvas_width = self.cell_size * 3
-        canvas_height = self.cell_size * 3
-        self.canvas = tk.Canvas(master, width=canvas_width, height=canvas_height, bg="white", highlightthickness=0)
+        self.cell_size = 150
+        self.matrix_green = "#117412"  # Verde mais claro
+        self.board_size = 3
+        self.canvas_width = self.cell_size * self.board_size
+        self.canvas_height = self.cell_size * self.board_size
+        self.canvas = tk.Canvas(master, width=self.canvas_width, height=self.canvas_height, bg="black", highlightthickness=0)
         self.canvas.pack()
 
+        self.animate_background()
         self.draw_grid()
+        self.text_ids = [[None for _ in range(self.board_size)] for _ in range(self.board_size)]
         self.canvas.bind("<Button-1>", self.handle_click)
 
+    def animate_background(self):
+        self.background_lines = []
+        num_lines = 100
+        for _ in range(num_lines):
+            x = random.randint(0, self.canvas_width)
+            y = random.randint(-200, 0)
+            length = random.randint(5, 15)
+            binary_string = "".join(random.choice(["0", "1", "@", "#", "$", "%", "A", "*","B"]) for _ in range(length))
+            text = self.canvas.create_text(x, y, text=binary_string, fill=self.matrix_green, font=("Courier", 12), anchor=tk.NW, tags="background")
+            self.background_lines.append({
+                "id": text,
+                "x": x,
+                "speed": random.randint(2, 6),
+                "update_frequency": 2,
+            })
+        self.move_lines()
+
+    def move_lines(self):
+        for line_data in self.background_lines:
+            line_id = line_data["id"]
+            speed = line_data["speed"]
+            x = line_data["x"]
+            y = self.canvas.coords(line_id)[1]
+            self.canvas.move(line_id, 0, speed)
+            if y > self.canvas_height:
+                length = random.randint(1, 5)
+                binary_string = "".join(random.choice(["0", "1", "@", "#", "$", "%", "&", "*"]) for _ in range(length))
+                self.canvas.itemconfig(line_id, text=binary_string)
+                self.canvas.coords(line_id, x, -random.randint(50, 200))
+        self.canvas.after(20, self.move_lines)
+
     def draw_grid(self):
-        for i in range(1, 3):
-            self.canvas.create_line(i * self.cell_size, 0, i * self.cell_size, self.cell_size * 3, width=self.line_width, fill=self.grid_color)
-            self.canvas.create_line(0, i * self.cell_size, self.cell_size * 3, i * self.cell_size, width=self.line_width, fill=self.grid_color)
+        for i in range(1, self.board_size):
+            self.canvas.create_line(i * self.cell_size, 0, i * self.cell_size, self.canvas_height, width=2, fill=self.matrix_green)
+            self.canvas.create_line(0, i * self.cell_size, self.canvas_width, i * self.cell_size, width=2, fill=self.matrix_green)
+
+    def animate_text(self, i, j, final_text):
+        symbols = ["!", "@", "#", "$", "%", "&", "*", "(", ")", "-", "+", "=", "[", "]", "{", "}", ";", ":", ",", ".", "/", "<", ">", "?", "|", "0","1"]
+        text_id = self.text_ids[i][j]
+
+        def change_text(count):
+            if count < 5:
+                random_text = "".join(random.choice(symbols) for _ in range(1))
+                self.canvas.itemconfig(text_id, text=random_text)
+                self.canvas.after(30, change_text, count + 1)
+            else:
+                self.canvas.itemconfig(text_id, text=final_text)
+        change_text(0)
 
     def handle_click(self, event):
+        if self.match.winner is not None:  # Verifica se o jogo já terminou
+            return
+
         x = event.x // self.cell_size
         y = event.y // self.cell_size
 
         try:
             self.match.board.make_move(y, x)
-            self.update_board()
+            if self.text_ids[y][x] is None:
+                text_id = self.canvas.create_text(x * self.cell_size + self.cell_size // 2, y * self.cell_size + self.cell_size // 2, text="", fill=self.matrix_green, font=("Courier", 40), tags="text")
+                self.text_ids[y][x] = text_id
+            self.animate_text(y, x, self.match.board.mat[y][x])
             self.match.winner = self.match.board.check_victory()
+
             if self.match.winner:
                 self.end_game(self.match.winner)
-        except OutOfBoundsError as e:
-            messagebox.showerror("Erro", str(e))
-        except CellOccupiedError as e:
-            messagebox.showerror("Erro", str(e))
-        except Exception as e:
-            messagebox.showerror("Erro Inesperado", f"Ocorreu um erro inesperado: {e}")
-            traceback.print_exc() # Imprime o traceback completo no console
 
-    def update_board(self):
-        self.canvas.delete("X", "O")
-        for i in range(3):
-            for j in range(3):
-                if self.match.board.mat[i][j] == 'X':
-                    x0 = j * self.cell_size + self.cell_size // 2
-                    y0 = i * self.cell_size + self.cell_size // 2
-                    self.canvas.create_image(x0, y0, image=self.x_image, tags="X")
-                elif self.match.board.mat[i][j] == 'O':
-                    x0 = j * self.cell_size + self.cell_size // 2
-                    y0 = i * self.cell_size + self.cell_size // 2
-                    self.canvas.create_image(x0, y0, image=self.o_image, tags="O")
+            self.canvas.update()
+
+        except OutOfBoundsError as e:
+            print(e)
+        except CellOccupiedError as e:
+            print(e)
 
     def end_game(self, winner):
-        if winner == "Empate":
-            messagebox.showinfo("Fim de Jogo", "Empate!")
-        else:
-            messagebox.showinfo("Fim de Jogo", f"Jogador {winner} venceu!")
         self.canvas.unbind("<Button-1>")
+        width = self.canvas.winfo_width()
+        height = self.canvas.winfo_height()
+
+        if winner == "Empate":
+            self.canvas.create_text(width / 2, height * 3/4, text="Empate!", fill="white", font=("Courier", 20), anchor=tk.CENTER)
+        else:
+            self.canvas.create_text(width / 2, height * 3/4, text=f"Jogador {winner} Venceu!", fill="white", font=("Courier", 20), anchor=tk.CENTER)
 
 def main():
     root = tk.Tk()
